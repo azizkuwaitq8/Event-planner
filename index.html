@@ -552,6 +552,10 @@ const SUPABASE_URL  = 'https://fyignptpeijtxynpftni.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5aWducHRwZWlqdHh5bnBmdG5pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MDM3NTMsImV4cCI6MjA5MzI3OTc1M30.f76ias1wKH58YkIhk3P2CtbD9LZYthq-N6cFkocWuR0';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
+/* ===== EMAIL WEBHOOK (n8n) — paste your webhook URL here ===== */
+/* Empty string = no email sent. Get this from your n8n Webhook node. */
+const N8N_WEBHOOK_URL = 'https://aasutest.app.n8n.cloud/webhook/event-decision';
+
 const $ = id => document.getElementById(id);
 
 let LANG = 'en';
@@ -807,12 +811,42 @@ $('nmGo').onclick = async () => {
   const { act, id } = NOTE_CTX;
   const newStatus = act==='approve' ? 'approved' : 'rejected';
   const note = $('nm_text').value.trim() || null;
+
+  // Find the event so we can include details in the email
+  const ev = EVENTS.find(e => e.id === id);
+
   const { error } = await sb.from('events').update({
     status: newStatus, admin_notes: note,
     reviewed_by: SESSION?.user?.id ?? null, reviewed_at: new Date().toISOString()
   }).eq('id', id);
   $('notesModal').classList.remove('show');
-  if (error) toast(error.message, 'bad');
+  if (error) { toast(error.message, 'bad'); return; }
+
+  // Fire email webhook (don't block UI on it)
+  if (N8N_WEBHOOK_URL && ev) {
+    fetch(N8N_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        decision: newStatus,           // "approved" or "rejected"
+        event_name: ev.name_en,
+        event_name_ar: ev.name_ar,
+        organizer: ev.organizer,
+        contact_email: ev.contact_email,
+        contact_phone: ev.contact_phone,
+        location: ev.location,
+        start_at: ev.start_at,
+        end_at: ev.end_at,
+        category: ev.category,
+        target_audience: ev.target_audience,
+        expected_attendance: ev.expected_attendance,
+        budget: ev.budget,
+        description: ev.description,
+        admin_notes: note,
+        reviewed_at: new Date().toISOString()
+      })
+    }).catch(err => console.warn('Email webhook failed:', err));
+  }
 };
 
 /* CALENDAR */
