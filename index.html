@@ -244,6 +244,8 @@ main{max-width:1280px;margin:0 auto;padding:32px}
   transition:background .12s ease;
 }
 .cal-cell:hover{background:var(--bg)}
+.cal-cell.clickable{cursor:pointer}
+.cal-cell.clickable:hover{background:var(--orange-soft)}
 .cal-cell.dim{background:#fafbfd;color:var(--muted)}
 .cal-cell .num{font-weight:700;font-size:14px;color:var(--navy)}
 .cal-cell.today .num{
@@ -539,6 +541,17 @@ main{max-width:1280px;margin:0 auto;padding:32px}
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:22px">
       <button id="nmCancel" class="btn ghost">Cancel | إلغاء</button>
       <button id="nmGo" class="btn">Confirm | تأكيد</button>
+    </div>
+  </div>
+</div>
+
+<!-- Day-detail modal — opens when clicking a calendar day with events -->
+<div id="dayModal" class="modal-bg">
+  <div class="modal" style="max-width:560px">
+    <h3 id="dayTitle">—</h3>
+    <div id="dayBody" style="margin-top:14px;display:flex;flex-direction:column;gap:14px;max-height:60vh;overflow-y:auto"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:22px">
+      <button id="dayClose" class="btn">Close | إغلاق</button>
     </div>
   </div>
 </div>
@@ -873,7 +886,7 @@ function renderCal(){
     ).join('');
     const more = dayEvents.length > 3
       ? `<span class="cal-evt" style="background:transparent;border:0;color:var(--muted);font-size:10px">+${dayEvents.length-3} more</span>` : '';
-    html += `<div class="cal-cell ${isToday?'today':''} ${dayEvents.length?'has-evt':''}">
+    html += `<div class="cal-cell ${isToday?'today':''} ${dayEvents.length?'has-evt clickable':''}" ${dayEvents.length?`data-cal-day="${y}-${m}-${d}"`:''}>
       <span class="num">${d}</span>${evHtml}${more}</div>`;
   }
   const used = startDow + daysInMonth;
@@ -886,6 +899,67 @@ function renderCal(){
 $('calPrev').onclick = ()=>{ CAL_DATE.setMonth(CAL_DATE.getMonth()-1); renderCal(); };
 $('calNext').onclick = ()=>{ CAL_DATE.setMonth(CAL_DATE.getMonth()+1); renderCal(); };
 $('calToday').onclick = ()=>{ CAL_DATE = new Date(); CAL_DATE.setDate(1); renderCal(); };
+
+/* DAY DETAIL MODAL — click any calendar day with events */
+$('calGrid').addEventListener('click', (e) => {
+  const cell = e.target.closest('[data-cal-day]');
+  if (!cell) return;
+  const [y, m, d] = cell.dataset.calDay.split('-').map(Number);
+  openDayModal(y, m, d);
+});
+$('dayClose').onclick = () => $('dayModal').classList.remove('show');
+$('dayModal').addEventListener('click', (e) => {
+  if (e.target.id === 'dayModal') $('dayModal').classList.remove('show');
+});
+
+function openDayModal(y, m, d){
+  const calSource = IS_ADMIN ? EVENTS : EVENTS.filter(ev => ev.status === 'approved');
+  const dayEvents = calSource.filter(ev => {
+    const sd = new Date(ev.start_at);
+    return sd.getFullYear()===y && sd.getMonth()===m && sd.getDate()===d;
+  }).sort((a,b) => new Date(a.start_at) - new Date(b.start_at));
+
+  const dateStr = new Date(y, m, d).toLocaleDateString('en-US', {
+    weekday:'long', year:'numeric', month:'long', day:'numeric'
+  });
+  const dateStrAr = `${d} ${MONTHS_AR[m]} ${y}`;
+  $('dayTitle').innerHTML = `<span>${dateStr}</span><br><span class="ar" style="color:var(--muted);font-size:16px">${dateStrAr}</span>`;
+
+  if (!dayEvents.length){
+    $('dayBody').innerHTML = `<div class="empty"><div class="big">No events</div><p>لا توجد فعاليات في هذا اليوم</p></div>`;
+  } else {
+    $('dayBody').innerHTML = dayEvents.map(ev => {
+      const start = new Date(ev.start_at).toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'});
+      const end = new Date(ev.end_at).toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'});
+      const needs = (ev.needs || []).map(n => `<span>${escapeHTML(NEED_LABELS[n] || n)}</span>`).join('');
+      const title = ev.name_ar
+        ? `${escapeHTML(ev.name_en)} <span style="color:var(--muted);font-weight:500">| ${escapeHTML(ev.name_ar)}</span>`
+        : escapeHTML(ev.name_en);
+      const tags = [];
+      if (ev.category) tags.push(`<span class="tag">${escapeHTML(CAT_LABELS[ev.category] || ev.category)}</span>`);
+      if (ev.target_audience) tags.push(`<span class="tag">${escapeHTML(AUD_LABELS[ev.target_audience] || ev.target_audience)}</span>`);
+      return `
+        <div style="background:var(--bg);border:1px solid var(--rule);border-radius:10px;padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px">
+            <h4 style="margin:0;color:var(--navy);font-size:16px;font-weight:700">${title}</h4>
+            <span class="status ${ev.status}">${STATUS_LABELS[ev.status]}</span>
+          </div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.6">
+            <div><b style="color:var(--ink)">⏰</b> ${start} — ${end}</div>
+            <div><b style="color:var(--ink)">📍</b> ${escapeHTML(ev.location)}</div>
+            <div><b style="color:var(--ink)">👥</b> ${escapeHTML(ev.organizer)} · ${ev.expected_attendance||0} ${tr('attendees')}</div>
+            ${ev.contact_email ? `<div><b style="color:var(--ink)">✉️</b> ${escapeHTML(ev.contact_email)}</div>` : ''}
+          </div>
+          ${ev.description ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--rule);font-size:13px;line-height:1.5">${escapeHTML(ev.description)}</div>` : ''}
+          ${tags.length ? `<div class="meta-row" style="margin-top:10px">${tags.join('')}</div>` : ''}
+          ${needs ? `<div class="needs-row" style="margin-top:8px">${needs}</div>` : ''}
+          ${ev.admin_notes ? `<div class="notes" style="margin-top:10px"><b>Admin notes | ملاحظات الإدارة</b>${escapeHTML(ev.admin_notes)}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+  $('dayModal').classList.add('show');
+}
 
 /* AUTH */
 $('adminBtn').onclick = ()=> $('loginModal').classList.add('show');
