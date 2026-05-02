@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Event Management System | نظام إدارة الفعاليات</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Kufi+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+:root{
+  --navy:#1a1f4d;
+  --navy-deep:#0e1238;
+  --orange:#f5a623;
+  --orange-soft:#fff4e0;
+  --teal:#2dd4c4;
+  --bg:#f6f7fb;
+  --paper:#ffffff;
+  --ink:#0e1238;
+  --rule:#e3e6ee;
+  --rule-strong:#cdd2e0;
+  --muted:#6b7088;
+  --ok:#1f8a5c;
+  --warn:#c87f00;
+  --bad:#b53a2c;
+  --shadow-sm:0 1px 2px rgba(14,18,56,.05);
+  --shadow:0 4px 16px -6px rgba(14,18,56,.12);
+  --radius:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:'Inter','Noto Kufi Arabic',system-ui,sans-serif;
+  color:var(--ink);background:var(--bg);min-height:100vh;
+  -webkit-font-smoothing:antialiased;font-size:15px;
+}
+button,input,select,textarea{font:inherit;color:inherit;font-family:inherit}
+
+/* ============ TOP BAR ============ */
+.bar{
+  background:var(--paper);border-bottom:1px solid var(--rule);
+  padding:14px 32px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:50;
+}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.brand img{height:42px;width:auto;display:block;flex:none}
+.brand .divider{width:1px;height:32px;background:var(--rule);flex:none}
+.brand .title{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.brand .title b{color:var(--navy);font-weight:700;font-size:14px}
+.brand .title span{color:var(--muted);font-size:12px}
+
+.bar-right{display:flex;align-items:center;gap:10px}
+
+.lang-toggle{
+  display:inline-flex;background:var(--bg);border:1px solid var(--rule);
+  border-radius:999px;overflow:hidden;padding:3px;
+}
+.lang-toggle button{
+  border:0;background:transparent;padding:6px 14px;cursor:pointer;
+  font-weight:600;font-size:12px;border-radius:999px;color:var(--muted);
+  font-family:inherit;
+}
+.lang-toggle button.on{background:var(--navy);color:#fff}
+
+.btn{
+  border:1px solid var(--navy);background:var(--navy);color:#fff;
+  padding:10px 18px;border-radius:var(--radius);cursor:pointer;
+  font-weight:600;font-size:14px;
+  transition:transform .12s ease, background .12s ease, box-shadow .12s ease;
+}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.btn.ghost{background:transparent;color:var(--navy)}
+.btn.ghost:hover{background:rgba(26,31,77,.06)}
+.btn.accent{background:var(--orange);border-color:var(--orange);color:#3a2400}
+.btn.accent:hover{background:#e8951a;border-color:#e8951a}
+.btn.tiny{padding:7px 14px;font-size:12px}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.bad{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn[disabled]{opacity:.5;cursor:not-allowed;transform:none}
+
+/* ============ ADMIN STRIP ============ */
+.admin-strip{
+  background:var(--navy-deep);color:#fff;
+  padding:10px 32px;display:none;justify-content:space-between;align-items:center;font-size:13px;
+}
+.admin-strip.show{display:flex}
+.admin-strip .who{display:flex;align-items:center;gap:10px}
+.admin-strip .dot{width:8px;height:8px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 4px rgba(45,212,196,.2)}
+.admin-strip b{font-weight:600}
+
+/* ============ MAIN ============ */
+main{max-width:1280px;margin:0 auto;padding:32px}
+
+.page-title{
+  font-size:32px;font-weight:800;color:var(--navy);
+  margin:0 0 28px;letter-spacing:-.01em;text-align:center;line-height:1.25;
+}
+.page-title .ar{font-family:'Noto Kufi Arabic',sans-serif;font-weight:800}
+.page-title .sep{color:var(--rule-strong);font-weight:400;margin:0 12px}
+
+/* ============ CARD ============ */
+.card{
+  background:var(--paper);
+  border:1.5px solid var(--rule);
+  border-radius:14px;
+  padding:32px;
+  margin-bottom:28px;
+  box-shadow:var(--shadow-sm);
+}
+.card-title{
+  font-size:22px;font-weight:700;color:var(--navy);
+  text-align:center;margin:0 0 28px;line-height:1.3;
+}
+.card-title .ar{font-family:'Noto Kufi Arabic',sans-serif;font-weight:800}
+.card-title .sep{color:var(--rule-strong);font-weight:400;margin:0 10px}
+
+/* ============ FORM (bilingual labels above each input) ============ */
+.row{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:20px}
+.row.three{grid-template-columns:1fr 1fr 1fr}
+.row.full{grid-template-columns:1fr}
+
+.field label{
+  display:flex;justify-content:center;align-items:center;gap:6px;
+  font-size:14px;font-weight:600;color:var(--ink);
+  margin-bottom:8px;text-align:center;line-height:1.4;
+}
+.field label .ar{font-family:'Noto Kufi Arabic',sans-serif;font-weight:700}
+.field label .sep{color:var(--rule-strong);font-weight:400}
+
+.field input, .field select, .field textarea{
+  width:100%;
+  background:var(--paper);border:1.5px solid var(--rule);border-radius:var(--radius);
+  padding:11px 14px;font-size:14px;color:var(--ink);
+  transition:border-color .12s ease, box-shadow .12s ease;
+}
+.field textarea{min-height:88px;resize:vertical;line-height:1.5}
+.field input:focus, .field select:focus, .field textarea:focus{
+  outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(26,31,77,.08);
+}
+.field input::placeholder, .field textarea::placeholder{
+  color:#a8acbf;font-size:13px;
+}
+.field .hint{font-size:12px;color:var(--muted);margin-top:6px;text-align:center}
+
+/* requirements as checkboxes (matching reference) */
+.reqs{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px;
+}
+.req{
+  border:1.5px solid var(--rule);border-radius:var(--radius);
+  padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;
+  font-size:14px;background:var(--paper);user-select:none;
+  transition:all .12s ease;justify-content:center;
+}
+.req:hover{border-color:var(--navy)}
+.req input{width:16px;height:16px;accent-color:var(--navy);cursor:pointer;margin:0}
+.req.on{background:var(--orange-soft);border-color:var(--orange)}
+.req span .ar{font-family:'Noto Kufi Arabic',sans-serif;font-weight:600}
+
+.form-foot{display:flex;justify-content:center;margin-top:8px}
+.form-foot .btn{padding:13px 36px;font-size:15px}
+
+/* ============ TABS ============ */
+.tabs{
+  display:flex;gap:6px;background:var(--paper);
+  border:1.5px solid var(--rule);border-radius:var(--radius);
+  padding:5px;margin-bottom:24px;max-width:fit-content;margin-inline:auto;flex-wrap:wrap;
+}
+.tab{
+  padding:10px 20px;background:transparent;border:0;cursor:pointer;
+  font-weight:600;font-size:13px;color:var(--muted);border-radius:7px;
+}
+.tab:hover{color:var(--ink)}
+.tab.on{background:var(--navy);color:#fff}
+.tab .badge{
+  display:inline-block;background:rgba(255,255,255,.25);color:inherit;
+  border-radius:999px;font-size:11px;padding:1px 8px;margin-inline-start:6px;font-weight:700;
+}
+.tab:not(.on) .badge{background:var(--rule);color:var(--muted)}
+
+/* ============ EVENT LIST ============ */
+.list{display:flex;flex-direction:column;gap:12px}
+.event{
+  background:var(--paper);border:1.5px solid var(--rule);border-radius:var(--radius);
+  padding:18px 22px;display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:center;
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.event:hover{border-color:var(--rule-strong);box-shadow:var(--shadow-sm)}
+.event .when{
+  text-align:center;padding-inline-end:18px;border-inline-end:1px solid var(--rule);min-width:78px;
+}
+.event .when .d{font-size:30px;font-weight:800;color:var(--navy);line-height:1}
+.event .when .m{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-top:6px;font-weight:600}
+.event .when .t{font-size:11px;color:var(--muted);margin-top:4px;font-weight:500}
+.event .body h3{margin:0 0 4px;font-weight:700;font-size:17px;color:var(--navy)}
+.event .body .sub{font-size:13px;color:var(--muted);line-height:1.5}
+.event .body .sub b{color:var(--ink);font-weight:600}
+.event .body .meta-row{
+  display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;
+}
+.event .body .tag{
+  font-size:11px;background:var(--bg);border:1px solid var(--rule);
+  padding:3px 10px;border-radius:999px;color:var(--muted);font-weight:500;
+}
+.event .body .needs-row{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+.event .body .needs-row span{
+  font-size:11px;background:var(--orange-soft);border:1px solid #f5d28a;
+  padding:3px 10px;border-radius:999px;color:#7a5400;font-weight:500;
+}
+.event .body .notes{
+  margin-top:10px;padding:10px 14px;background:rgba(245,166,35,.08);
+  border-inline-start:3px solid var(--orange);border-radius:6px;
+  font-size:13px;color:var(--ink);line-height:1.5;
+}
+.event .body .notes b{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--warn);font-weight:700;display:block;margin-bottom:3px}
+.status{
+  font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  padding:5px 11px;border-radius:999px;border:1.5px solid;display:inline-block;
+}
+.status.pending{color:var(--warn);border-color:var(--warn);background:rgba(200,127,0,.08)}
+.status.approved{color:var(--ok);border-color:var(--ok);background:rgba(31,138,92,.08)}
+.status.rejected{color:var(--bad);border-color:var(--bad);background:rgba(181,58,44,.08)}
+.event-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.event-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+
+/* ============ CALENDAR ============ */
+.cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px}
+.cal-head h2{margin:0;font-size:24px;font-weight:700;color:var(--navy)}
+.cal-grid{
+  display:grid;grid-template-columns:repeat(7,1fr);gap:1px;
+  background:var(--rule);border:1px solid var(--rule);border-radius:var(--radius);overflow:hidden;
+}
+.cal-grid .dow{
+  background:var(--navy);padding:11px;font-size:12px;
+  color:#fff;text-align:center;font-weight:600;
+}
+.cal-cell{
+  background:var(--paper);min-height:96px;padding:8px;font-size:12px;position:relative;
+  transition:background .12s ease;
+}
+.cal-cell:hover{background:var(--bg)}
+.cal-cell.dim{background:#fafbfd;color:var(--muted)}
+.cal-cell .num{font-weight:700;font-size:14px;color:var(--navy)}
+.cal-cell.today .num{
+  background:var(--orange);color:#3a2400;border-radius:50%;
+  width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;
+}
+.cal-evt{
+  display:block;margin-top:4px;font-size:11px;line-height:1.25;
+  padding:3px 7px;border-radius:5px;background:var(--bg);
+  border-inline-start:3px solid var(--orange);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;font-weight:500;
+}
+.cal-evt.approved{border-inline-start-color:var(--ok);background:rgba(31,138,92,.08)}
+.cal-evt.rejected{border-inline-start-color:var(--bad);opacity:.5;text-decoration:line-through}
+.cal-evt.pending{border-inline-start-color:var(--warn)}
+
+/* ============ MODAL ============ */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(14,18,56,.6);backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;z-index:80;padding:20px;
+}
+.modal-bg.show{display:flex}
+.modal{
+  background:var(--paper);border-radius:14px;max-width:440px;width:100%;
+  padding:32px;box-shadow:0 24px 60px -20px rgba(14,18,56,.4);
+}
+.modal h3{margin:0 0 6px;font-size:22px;font-weight:700;color:var(--navy);text-align:center}
+.modal h3 .ar{font-family:'Noto Kufi Arabic',sans-serif;font-weight:800}
+.modal h3 .sep{color:var(--rule-strong);font-weight:400;margin:0 8px}
+.modal p{color:var(--muted);margin:0 0 22px;font-size:13px;line-height:1.5;text-align:center}
+
+/* ============ TOAST ============ */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--navy);color:#fff;padding:12px 22px;border-radius:999px;
+  box-shadow:0 12px 30px -10px rgba(14,18,56,.4);font-size:14px;z-index:99;
+  opacity:0;pointer-events:none;transition:opacity .25s ease, transform .25s ease;font-weight:500;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.bad{background:var(--bad)}
+.toast.ok{background:var(--ok)}
+
+/* ============ EMPTY ============ */
+.empty{
+  text-align:center;padding:60px 24px;color:var(--muted);
+  border:2px dashed var(--rule);border-radius:14px;background:var(--paper);
+}
+.empty .big{font-size:22px;color:var(--navy);margin-bottom:8px;font-weight:700}
+.empty p{margin:0;font-size:14px}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 880px){
+  .bar{padding:12px 16px}
+  main{padding:18px}
+  .card{padding:20px}
+  .page-title{font-size:22px}
+  .row, .row.three{grid-template-columns:1fr;gap:16px}
+  .reqs{grid-template-columns:1fr 1fr}
+  .event{grid-template-columns:auto 1fr;padding:16px}
+  .event-right{grid-column:1/-1;flex-direction:row;justify-content:space-between;align-items:center;width:100%}
+  .cal-cell{min-height:60px;padding:6px}
+  .cal-cell .num{font-size:13px}
+  .cal-evt{display:none}
+  .cal-cell.has-evt::after{content:"";position:absolute;bottom:6px;inset-inline-start:6px;width:6px;height:6px;border-radius:50%;background:var(--orange)}
+  .brand .divider, .brand .title{display:none}
+  .brand img{height:34px}
+}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="brand">
+    <img id="uniLogo" alt="AASU">
+    <div class="divider"></div>
+    <div class="title">
+      <b>Abdullah Al Salem University</b>
+      <span>Event Management System</span>
+    </div>
+  </div>
+  <div class="bar-right">
+    <div class="lang-toggle" role="group">
+      <button id="langEn" class="on">EN</button>
+      <button id="langAr">العربية</button>
+    </div>
+    <button id="adminBtn" class="btn ghost"><span data-i18n="admin">Admin</span></button>
+  </div>
+</header>
+
+<div id="adminStrip" class="admin-strip">
+  <div class="who">
+    <span class="dot"></span>
+    <span>Signed in as <b id="adminEmail">—</b></span>
+  </div>
+  <button id="logoutBtn" class="btn tiny ghost" style="color:#fff;border-color:rgba(255,255,255,.4)">Log out | تسجيل خروج</button>
+</div>
+
+<main>
+
+  <h1 class="page-title">
+    <span>Event Management System</span>
+    <span class="sep">|</span>
+    <span class="ar">نظام إدارة الفعاليات</span>
+  </h1>
+
+  <!-- TABS -->
+  <div class="tabs" role="tablist">
+    <button class="tab on" data-tab="submit">Submit | إرسال</button>
+    <button class="tab" data-tab="calendar">Calendar | التقويم</button>
+    <button class="tab" data-tab="list">All Events | كل الفعاليات <span class="badge" id="countAll">0</span></button>
+    <button class="tab" data-tab="queue" id="queueTab" style="display:none">Pending | قائمة الانتظار <span class="badge" id="countPending">0</span></button>
+  </div>
+
+  <!-- SUBMIT PANE -->
+  <section id="pane-submit" class="pane">
+    <div class="card">
+      <h2 class="card-title">
+        <span>New Event Request</span>
+        <span class="sep">|</span>
+        <span class="ar">طلب فعالية جديدة</span>
+      </h2>
+
+      <div class="row">
+        <div class="field">
+          <label><span>Event Name</span><span class="sep">|</span><span class="ar">اسم الفعالية</span></label>
+          <input id="f_name_en" type="text" placeholder="Enter event name | أدخل اسم الفعالية">
+        </div>
+        <div class="field">
+          <label><span>Email</span><span class="sep">|</span><span class="ar">البريد الإلكتروني</span></label>
+          <input id="f_email" type="email" placeholder="Enter email | أدخل البريد الإلكتروني">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label><span>Organizing Entity</span><span class="sep">|</span><span class="ar">الجهة المنظمة</span></label>
+          <input id="f_org" type="text" placeholder="Enter organizing entity | أدخل الجهة المنظمة">
+        </div>
+        <div class="field">
+          <label><span>Phone Number</span><span class="sep">|</span><span class="ar">رقم الهاتف</span></label>
+          <input id="f_phone" type="tel" placeholder="Enter phone number | أدخل رقم الهاتف">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label><span>Category</span><span class="sep">|</span><span class="ar">الفئة</span></label>
+          <select id="f_cat">
+            <option value="">Select Category | اختر الفئة</option>
+            <option value="academic">Academic | أكاديمي</option>
+            <option value="cultural">Cultural | ثقافي</option>
+            <option value="social">Social | اجتماعي</option>
+            <option value="sports">Sports | رياضي</option>
+            <option value="conference">Conference | مؤتمر</option>
+            <option value="workshop">Workshop | ورشة عمل</option>
+            <option value="other">Other | أخرى</option>
+          </select>
+        </div>
+        <div class="field">
+          <label><span>Target Audience</span><span class="sep">|</span><span class="ar">الجمهور المستهدف</span></label>
+          <select id="f_aud">
+            <option value="">Select Audience | اختر الجمهور</option>
+            <option value="students">Students | الطلاب</option>
+            <option value="faculty">Faculty | أعضاء هيئة التدريس</option>
+            <option value="staff">Staff | الموظفون</option>
+            <option value="public">Public | الجمهور العام</option>
+            <option value="mixed">Mixed | مختلط</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label><span>Date — Start</span><span class="sep">|</span><span class="ar">التاريخ — البداية</span></label>
+          <input id="f_start" type="datetime-local">
+        </div>
+        <div class="field">
+          <label><span>Date — End</span><span class="sep">|</span><span class="ar">التاريخ — النهاية</span></label>
+          <input id="f_end" type="datetime-local">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label><span>Location</span><span class="sep">|</span><span class="ar">المكان</span></label>
+          <input id="f_loc" type="text" placeholder="Enter location | أدخل المكان">
+        </div>
+        <div class="field">
+          <label><span>Budget (KWD)</span><span class="sep">|</span><span class="ar">الميزانية (د.ك)</span></label>
+          <input id="f_budget" type="number" min="0" step="0.001" placeholder="Enter budget | أدخل الميزانية">
+        </div>
+      </div>
+
+      <div class="row full">
+        <div class="field">
+          <label><span>Event Description</span><span class="sep">|</span><span class="ar">وصف الفعالية</span></label>
+          <textarea id="f_desc" placeholder="Enter event description | أدخل وصف الفعالية"></textarea>
+        </div>
+      </div>
+
+      <div class="row full">
+        <div class="field">
+          <label><span>Special Instructions</span><span class="sep">|</span><span class="ar">تعليمات خاصة</span></label>
+          <textarea id="f_special" placeholder="Enter special instructions | أدخل التعليمات الخاصة"></textarea>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label><span>Expected Attendance</span><span class="sep">|</span><span class="ar">العدد المتوقع</span></label>
+          <input id="f_att" type="number" min="0" value="0" placeholder="Enter expected attendance | أدخل العدد المتوقع">
+        </div>
+        <div class="field">
+          <label><span>Event Name (Arabic)</span><span class="sep">|</span><span class="ar">اسم الفعالية (عربي)</span></label>
+          <input id="f_name_ar" type="text" dir="rtl" placeholder="اسم الفعالية بالعربي">
+        </div>
+      </div>
+
+      <div class="row full">
+        <div class="field">
+          <label><span>Requirements</span><span class="sep">|</span><span class="ar">المتطلبات</span></label>
+          <div class="reqs" id="reqs">
+            <label class="req"><input type="checkbox" data-need="screens"><span>Screens <span class="ar">| شاشات</span></span></label>
+            <label class="req"><input type="checkbox" data-need="seats"><span>Seats <span class="ar">| مقاعد</span></span></label>
+            <label class="req"><input type="checkbox" data-need="buffet"><span>Buffet <span class="ar">| بوفيه</span></span></label>
+            <label class="req"><input type="checkbox" data-need="security"><span>Security <span class="ar">| أمن</span></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-foot">
+        <button id="submitBtn" class="btn accent">Submit Request | إرسال الطلب</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CALENDAR -->
+  <section id="pane-calendar" class="pane" style="display:none">
+    <div class="card">
+      <div class="cal-head">
+        <h2 id="calTitle">—</h2>
+        <div style="display:flex;gap:6px">
+          <button id="calPrev" class="btn ghost tiny">← Prev | السابق</button>
+          <button id="calToday" class="btn ghost tiny">Today | اليوم</button>
+          <button id="calNext" class="btn ghost tiny">Next | التالي →</button>
+        </div>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+  </section>
+
+  <!-- LIST -->
+  <section id="pane-list" class="pane" style="display:none">
+    <div id="listAll" class="list"></div>
+  </section>
+
+  <!-- QUEUE -->
+  <section id="pane-queue" class="pane" style="display:none">
+    <div id="listQueue" class="list"></div>
+  </section>
+
+</main>
+
+<!-- LOGIN MODAL -->
+<div id="loginModal" class="modal-bg">
+  <div class="modal">
+    <h3><span>Admin Login</span><span class="sep">|</span><span class="ar">دخول المسؤول</span></h3>
+    <p>Only authorized admins can approve events.<br>المسؤولون المصرّح لهم فقط يمكنهم الموافقة.</p>
+    <div class="field" style="margin-bottom:14px">
+      <label><span>Email</span><span class="sep">|</span><span class="ar">البريد الإلكتروني</span></label>
+      <input id="li_email" type="email">
+    </div>
+    <div class="field">
+      <label><span>Password</span><span class="sep">|</span><span class="ar">كلمة المرور</span></label>
+      <input id="li_pass" type="password">
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:22px">
+      <button id="liCancel" class="btn ghost">Cancel | إلغاء</button>
+      <button id="liGo" class="btn">Log in | دخول</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTES MODAL -->
+<div id="notesModal" class="modal-bg">
+  <div class="modal">
+    <h3 id="nmTitle">—</h3>
+    <p>Optional comment shown publicly on the event card.<br>تعليق اختياري يظهر علناً على بطاقة الفعالية.</p>
+    <div class="field">
+      <label><span>Notes</span><span class="sep">|</span><span class="ar">الملاحظات</span></label>
+      <textarea id="nm_text"></textarea>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:22px">
+      <button id="nmCancel" class="btn ghost">Cancel | إلغاء</button>
+      <button id="nmGo" class="btn">Confirm | تأكيد</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast">—</div>
+
+<script>document.getElementById("uniLogo").src="data:image/png;base64,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";</script>
+
+<script>
+/* ===== SUPABASE — keys are baked in ===== */
+const SUPABASE_URL  = 'https://fyignptpeijtxynpftni.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5aWducHRwZWlqdHh5bnBmdG5pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MDM3NTMsImV4cCI6MjA5MzI3OTc1M30.f76ias1wKH58YkIhk3P2CtbD9LZYthq-N6cFkocWuR0';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const $ = id => document.getElementById(id);
+
+let LANG = 'en';
+const I18N = {
+  en: {
+    submitOk: 'Request submitted',
+    fillRequired: 'Please fill all required fields',
+    endBeforeStart: 'End time must be after start',
+    badLogin: 'Invalid email or password',
+    notAdmin: 'This account is not an admin',
+    loggedIn: 'Logged in',
+    confirmDel: 'Delete this event permanently?',
+    needPass: 'Email and password required',
+    emptyAll: 'No events yet',
+    emptyAllSub: 'Be the first to submit one.',
+    emptyQ: 'Inbox zero',
+    emptyQSub: 'No pending requests right now.',
+    attendees: 'attendees',
+  },
+  ar: {
+    submitOk: 'تم إرسال الطلب',
+    fillRequired: 'يرجى تعبئة جميع الحقول المطلوبة',
+    endBeforeStart: 'وقت النهاية يجب أن يكون بعد البداية',
+    badLogin: 'البريد أو كلمة المرور غير صحيحة',
+    notAdmin: 'هذا الحساب غير مصرّح له بصلاحيات المسؤول',
+    loggedIn: 'تم تسجيل الدخول',
+    confirmDel: 'حذف هذه الفعالية نهائياً؟',
+    needPass: 'البريد وكلمة المرور مطلوبان',
+    emptyAll: 'لا توجد فعاليات بعد',
+    emptyAllSub: 'كن أول من يقدّم طلباً.',
+    emptyQ: 'لا طلبات معلّقة',
+    emptyQSub: 'لا توجد طلبات في قائمة الانتظار حالياً.',
+    attendees: 'حاضر',
+  }
+};
+const tr = k => I18N[LANG][k] ?? k;
+
+function applyLang(){
+  document.documentElement.lang = LANG;
+  document.documentElement.dir = LANG === 'ar' ? 'rtl' : 'ltr';
+  $('langEn').classList.toggle('on', LANG === 'en');
+  $('langAr').classList.toggle('on', LANG === 'ar');
+  renderAll();
+  renderCal();
+}
+$('langEn').onclick = () => { LANG = 'en'; applyLang(); };
+$('langAr').onclick = () => { LANG = 'ar'; applyLang(); };
+
+let EVENTS = [];
+let SESSION = null;
+let IS_ADMIN = false;
+let CAL_DATE = new Date(); CAL_DATE.setDate(1);
+
+const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_AR = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+const DOWS = ['Sun | أحد','Mon | إثنين','Tue | ثلاثاء','Wed | أربعاء','Thu | خميس','Fri | جمعة','Sat | سبت'];
+
+function toast(msg, kind){
+  const el = $('toast'); el.textContent = msg;
+  el.className = 'toast show' + (kind ? ' '+kind : '');
+  clearTimeout(window.__tt); window.__tt = setTimeout(()=> el.className='toast', 2600);
+}
+function escapeHTML(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtDate(iso){
+  const d = new Date(iso);
+  return {
+    day: d.getDate(),
+    month: MONTHS_EN[d.getMonth()].slice(0,3),
+    time: d.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'})
+  };
+}
+
+/* TABS */
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  document.querySelectorAll('.pane').forEach(p=>p.style.display='none');
+  $('pane-'+b.dataset.tab).style.display='block';
+  if (b.dataset.tab==='calendar') renderCal();
+}));
+
+/* REQ CHECKBOXES — visual state */
+document.querySelectorAll('#reqs .req input').forEach(cb => {
+  cb.addEventListener('change', () => cb.closest('.req').classList.toggle('on', cb.checked));
+});
+function getNeeds(){
+  return [...document.querySelectorAll('#reqs .req input:checked')].map(c => c.dataset.need);
+}
+
+/* SUBMIT */
+$('submitBtn').addEventListener('click', async () => {
+  const name_en = $('f_name_en').value.trim();
+  const org     = $('f_org').value.trim();
+  const email   = $('f_email').value.trim();
+  const start   = $('f_start').value;
+  const end     = $('f_end').value;
+  const loc     = $('f_loc').value.trim();
+
+  if (!name_en || !org || !email || !start || !end || !loc) {
+    return toast(tr('fillRequired'), 'bad');
+  }
+  if (new Date(end) <= new Date(start)) {
+    return toast(tr('endBeforeStart'), 'bad');
+  }
+
+  $('submitBtn').disabled = true;
+
+  const payload = {
+    name_en,
+    name_ar: $('f_name_ar').value.trim() || null,
+    organizer: org,
+    contact_email: email,
+    contact_phone: $('f_phone').value.trim() || null,
+    category: $('f_cat').value || null,
+    target_audience: $('f_aud').value || null,
+    budget: $('f_budget').value ? parseFloat($('f_budget').value) : null,
+    special_instructions: $('f_special').value.trim() || null,
+    start_at: new Date(start).toISOString(),
+    end_at: new Date(end).toISOString(),
+    location: loc,
+    description: $('f_desc').value.trim() || null,
+    expected_attendance: parseInt($('f_att').value || '0', 10),
+    needs: getNeeds(),
+    status: 'pending'
+  };
+
+  const { error } = await sb.from('events').insert(payload);
+  $('submitBtn').disabled = false;
+  if (error) return toast(error.message, 'bad');
+
+  toast(tr('submitOk'), 'ok');
+
+  ['f_name_en','f_name_ar','f_org','f_email','f_phone','f_start','f_end','f_loc','f_desc','f_special','f_budget'].forEach(id => $(id).value = '');
+  $('f_att').value = '0'; $('f_cat').value = ''; $('f_aud').value = '';
+  document.querySelectorAll('#reqs .req input').forEach(cb => { cb.checked = false; cb.closest('.req').classList.remove('on'); });
+  document.querySelector('.tab[data-tab="list"]').click();
+});
+
+/* LOAD + REALTIME */
+async function loadEvents(){
+  const { data, error } = await sb.from('events').select('*').order('start_at',{ascending:true});
+  if (error){ console.error(error); toast(error.message, 'bad'); return; }
+  EVENTS = data || [];
+  renderAll(); renderCal();
+}
+sb.channel('events-live')
+  .on('postgres_changes', { event:'*', schema:'public', table:'events' }, () => loadEvents())
+  .subscribe();
+
+/* RENDER LIST */
+const NEED_LABELS = {
+  screens:'Screens | شاشات', seats:'Seats | مقاعد',
+  buffet:'Buffet | بوفيه', security:'Security | أمن'
+};
+const STATUS_LABELS = {
+  pending:'Pending | قيد المراجعة', approved:'Approved | تمت الموافقة', rejected:'Rejected | مرفوض'
+};
+const CAT_LABELS = {
+  academic:'Academic | أكاديمي', cultural:'Cultural | ثقافي', social:'Social | اجتماعي',
+  sports:'Sports | رياضي', conference:'Conference | مؤتمر', workshop:'Workshop | ورشة', other:'Other | أخرى'
+};
+const AUD_LABELS = {
+  students:'Students | الطلاب', faculty:'Faculty | الهيئة', staff:'Staff | الموظفون',
+  public:'Public | عام', mixed:'Mixed | مختلط'
+};
+
+function eventCard(ev){
+  const d = fmtDate(ev.start_at);
+  const needs = (ev.needs || []).map(n => `<span>${escapeHTML(NEED_LABELS[n] || n)}</span>`).join('');
+  const tags = [];
+  if (ev.category) tags.push(`<span class="tag">${escapeHTML(CAT_LABELS[ev.category] || ev.category)}</span>`);
+  if (ev.target_audience) tags.push(`<span class="tag">${escapeHTML(AUD_LABELS[ev.target_audience] || ev.target_audience)}</span>`);
+  if (ev.budget != null) tags.push(`<span class="tag">${ev.budget} KWD | د.ك</span>`);
+
+  let actions = '';
+  if (IS_ADMIN){
+    if (ev.status !== 'approved') actions += `<button class="btn ok tiny" data-act="approve" data-id="${ev.id}">Approve | موافقة</button>`;
+    if (ev.status !== 'rejected') actions += `<button class="btn bad tiny" data-act="reject" data-id="${ev.id}">Reject | رفض</button>`;
+    actions += `<button class="btn ghost tiny" data-act="delete" data-id="${ev.id}">Delete | حذف</button>`;
+  }
+  const notesBlock = ev.admin_notes
+    ? `<div class="notes"><b>Admin notes | ملاحظات الإدارة</b>${escapeHTML(ev.admin_notes)}</div>` : '';
+
+  const title = ev.name_ar ? `${escapeHTML(ev.name_en)} <span style="color:var(--muted);font-weight:500">| ${escapeHTML(ev.name_ar)}</span>` : escapeHTML(ev.name_en);
+
+  return `<div class="event">
+    <div class="when">
+      <div class="d">${d.day}</div>
+      <div class="m">${d.month}</div>
+      <div class="t">${d.time}</div>
+    </div>
+    <div class="body">
+      <h3>${title}</h3>
+      <div class="sub"><b>${escapeHTML(ev.organizer)}</b> · ${escapeHTML(ev.location)} · ${ev.expected_attendance||0} ${tr('attendees')}</div>
+      ${ev.description ? `<div class="sub" style="margin-top:6px">${escapeHTML(ev.description)}</div>` : ''}
+      ${tags.length ? `<div class="meta-row">${tags.join('')}</div>` : ''}
+      ${needs ? `<div class="needs-row">${needs}</div>` : ''}
+      ${notesBlock}
+    </div>
+    <div class="event-right">
+      <span class="status ${ev.status}">${STATUS_LABELS[ev.status]}</span>
+      ${actions ? `<div class="event-actions">${actions}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderAll(){
+  const all = EVENTS, pending = EVENTS.filter(e=>e.status==='pending');
+  $('countAll').textContent = all.length;
+  $('countPending').textContent = pending.length;
+  $('listAll').innerHTML = all.length ? all.map(eventCard).join('')
+    : `<div class="empty"><div class="big">${tr('emptyAll')}</div><p>${tr('emptyAllSub')}</p></div>`;
+  $('listQueue').innerHTML = pending.length ? pending.map(eventCard).join('')
+    : `<div class="empty"><div class="big">${tr('emptyQ')}</div><p>${tr('emptyQSub')}</p></div>`;
+}
+
+/* DELEGATED ACTIONS */
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-act]'); if (!btn) return;
+  const id = btn.dataset.id, act = btn.dataset.act;
+  if (!IS_ADMIN) return;
+  if (act==='delete'){
+    if (!confirm(tr('confirmDel'))) return;
+    const { error } = await sb.from('events').delete().eq('id', id);
+    if (error) toast(error.message, 'bad');
+  } else {
+    openNotes(act, id);
+  }
+});
+
+/* NOTES MODAL */
+let NOTE_CTX = null;
+function openNotes(act, id){
+  NOTE_CTX = { act, id };
+  $('nmTitle').innerHTML = act==='approve'
+    ? `<span>Approve Event</span><span class="sep">|</span><span class="ar">الموافقة على الفعالية</span>`
+    : `<span>Reject Event</span><span class="sep">|</span><span class="ar">رفض الفعالية</span>`;
+  $('nm_text').value = '';
+  $('notesModal').classList.add('show');
+}
+$('nmCancel').onclick = () => $('notesModal').classList.remove('show');
+$('nmGo').onclick = async () => {
+  const { act, id } = NOTE_CTX;
+  const newStatus = act==='approve' ? 'approved' : 'rejected';
+  const note = $('nm_text').value.trim() || null;
+  const { error } = await sb.from('events').update({
+    status: newStatus, admin_notes: note,
+    reviewed_by: SESSION?.user?.id ?? null, reviewed_at: new Date().toISOString()
+  }).eq('id', id);
+  $('notesModal').classList.remove('show');
+  if (error) toast(error.message, 'bad');
+};
+
+/* CALENDAR */
+function renderCal(){
+  const grid = $('calGrid');
+  const y = CAL_DATE.getFullYear(), m = CAL_DATE.getMonth();
+  $('calTitle').textContent = `${MONTHS_EN[m]} ${y} | ${MONTHS_AR[m]} ${y}`;
+  let html = DOWS.map(d => `<div class="dow">${d}</div>`).join('');
+  const startDow = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const prevDays = new Date(y, m, 0).getDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  for (let i = startDow - 1; i >= 0; i--){
+    html += `<div class="cal-cell dim"><span class="num">${prevDays - i}</span></div>`;
+  }
+  for (let d = 1; d <= daysInMonth; d++){
+    const cellDate = new Date(y, m, d);
+    const isToday = cellDate.getTime() === today.getTime();
+    const dayEvents = EVENTS.filter(ev => {
+      const sd = new Date(ev.start_at);
+      return sd.getFullYear()===y && sd.getMonth()===m && sd.getDate()===d;
+    });
+    const evHtml = dayEvents.slice(0,3).map(ev =>
+      `<span class="cal-evt ${ev.status}" title="${escapeHTML(ev.name_en)}">${escapeHTML(ev.name_en)}</span>`
+    ).join('');
+    const more = dayEvents.length > 3
+      ? `<span class="cal-evt" style="background:transparent;border:0;color:var(--muted);font-size:10px">+${dayEvents.length-3} more</span>` : '';
+    html += `<div class="cal-cell ${isToday?'today':''} ${dayEvents.length?'has-evt':''}">
+      <span class="num">${d}</span>${evHtml}${more}</div>`;
+  }
+  const used = startDow + daysInMonth;
+  const trail = (7 - used % 7) % 7;
+  for (let i = 1; i <= trail; i++){
+    html += `<div class="cal-cell dim"><span class="num">${i}</span></div>`;
+  }
+  grid.innerHTML = html;
+}
+$('calPrev').onclick = ()=>{ CAL_DATE.setMonth(CAL_DATE.getMonth()-1); renderCal(); };
+$('calNext').onclick = ()=>{ CAL_DATE.setMonth(CAL_DATE.getMonth()+1); renderCal(); };
+$('calToday').onclick = ()=>{ CAL_DATE = new Date(); CAL_DATE.setDate(1); renderCal(); };
+
+/* AUTH */
+$('adminBtn').onclick = ()=> $('loginModal').classList.add('show');
+$('liCancel').onclick = ()=> $('loginModal').classList.remove('show');
+$('liGo').onclick = async () => {
+  const email = $('li_email').value.trim();
+  const pass  = $('li_pass').value;
+  if (!email || !pass) return toast(tr('needPass'), 'bad');
+  $('liGo').disabled = true;
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  $('liGo').disabled = false;
+  if (error){ toast(tr('badLogin'), 'bad'); return; }
+  await afterLogin(data.session);
+  $('loginModal').classList.remove('show');
+  $('li_email').value=''; $('li_pass').value='';
+};
+$('logoutBtn').onclick = async () => {
+  await sb.auth.signOut();
+  SESSION = null; IS_ADMIN = false;
+  $('adminStrip').classList.remove('show');
+  $('queueTab').style.display='none';
+  $('adminBtn').style.display='inline-block';
+  if (document.querySelector('.tab.on')?.dataset.tab === 'queue') {
+    document.querySelector('.tab[data-tab="submit"]').click();
+  }
+  renderAll();
+};
+async function afterLogin(session){
+  SESSION = session;
+  const { data, error } = await sb.from('admins').select('user_id').eq('user_id', session.user.id).maybeSingle();
+  if (error || !data){
+    await sb.auth.signOut();
+    toast(tr('notAdmin'), 'bad');
+    return;
+  }
+  IS_ADMIN = true;
+  $('adminEmail').textContent = session.user.email;
+  $('adminStrip').classList.add('show');
+  $('queueTab').style.display='inline-block';
+  $('adminBtn').style.display='none';
+  toast(tr('loggedIn'), 'ok');
+  renderAll();
+}
+async function restoreSession(){
+  const { data } = await sb.auth.getSession();
+  if (data?.session) await afterLogin(data.session);
+}
+
+/* INIT */
+applyLang();
+loadEvents();
+restoreSession();
+</script>
+
+</body>
+</html>
