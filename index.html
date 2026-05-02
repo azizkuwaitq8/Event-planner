@@ -353,7 +353,7 @@ main{max-width:1280px;margin:0 auto;padding:32px}
     <button class="tab on" data-tab="submit">Submit | إرسال</button>
     <button class="tab" data-tab="calendar">Calendar | التقويم</button>
     <button class="tab" data-tab="list">All Events | كل الفعاليات <span class="badge" id="countAll">0</span></button>
-    <button class="tab" data-tab="queue" id="queueTab" style="display:none">Pending | قائمة الانتظار <span class="badge" id="countPending">0</span></button>
+    <button class="tab" data-tab="queue" id="queueTab" style="display:none">Manage | الإدارة <span class="badge" id="countPending">0</span></button>
   </div>
 
   <!-- SUBMIT PANE -->
@@ -761,12 +761,20 @@ function eventCard(ev){
 }
 
 function renderAll(){
-  const all = EVENTS, pending = EVENTS.filter(e=>e.status==='pending');
-  $('countAll').textContent = all.length;
+  const approved = EVENTS.filter(e=>e.status==='approved');
+  const pending  = EVENTS.filter(e=>e.status==='pending');
+  // Admin queue shows everything that needs review or has been reviewed
+  // (pending first, then rejected, then approved — so admin can override)
+  const queue = [
+    ...pending,
+    ...EVENTS.filter(e=>e.status==='rejected'),
+    ...EVENTS.filter(e=>e.status==='approved'),
+  ];
+  $('countAll').textContent = approved.length;
   $('countPending').textContent = pending.length;
-  $('listAll').innerHTML = all.length ? all.map(eventCard).join('')
+  $('listAll').innerHTML = approved.length ? approved.map(eventCard).join('')
     : `<div class="empty"><div class="big">${tr('emptyAll')}</div><p>${tr('emptyAllSub')}</p></div>`;
-  $('listQueue').innerHTML = pending.length ? pending.map(eventCard).join('')
+  $('listQueue').innerHTML = queue.length ? queue.map(eventCard).join('')
     : `<div class="empty"><div class="big">${tr('emptyQ')}</div><p>${tr('emptyQSub')}</p></div>`;
 }
 
@@ -824,7 +832,8 @@ function renderCal(){
   for (let d = 1; d <= daysInMonth; d++){
     const cellDate = new Date(y, m, d);
     const isToday = cellDate.getTime() === today.getTime();
-    const dayEvents = EVENTS.filter(ev => {
+    const calSource = IS_ADMIN ? EVENTS : EVENTS.filter(ev => ev.status === 'approved');
+    const dayEvents = calSource.filter(ev => {
       const sd = new Date(ev.start_at);
       return sd.getFullYear()===y && sd.getMonth()===m && sd.getDate()===d;
     });
